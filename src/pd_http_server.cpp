@@ -1,10 +1,11 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <netinet/in.h>
 #include <string>
 
+#include "pd_util.h"
 #include "pd_net.h"
 #include "pd_http_server.h"
 
@@ -31,7 +32,7 @@ int main(int argc, char const *argv[]){
         char buffer[MAXLINE] = {0};
         long valread = read( cnxxfd , buffer, MAXLINE);
         std::cout << buffer << std::endl;
-        write(cnxxfd , msg.c_str() , msg.size());
+        rio_writen(cnxxfd , (void *)msg.c_str(), msg.size());
         std::cout << "Hello message sent" << std::endl;
         close(cnxxfd);
     }
