@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include <string.h>
+#include <cstring>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string>
@@ -46,7 +46,7 @@ int pd_connect(const std::string& hostname, const std::string& port){
  *     On error, returns -1 and sets errno.
  */
 int pd_listen(const std::string& port){
-    struct addrinfo hints, *listp, *p;
+    addrinfo hints, *listp, *p;
     int listenfd, optval=1;
 
     /* Get a list of potential server addresses */
@@ -75,6 +75,7 @@ int pd_listen(const std::string& port){
         return -1;
 
     if (listen(listenfd, LISTENQ) < 0)
-	return -1;
-    return listenfd;
+	    return -1;
+    else
+        return listenfd;
 }
