@@ -17,4 +17,4 @@ add_executable(pardus
         src/pd_util.cpp
         src/pd_util.h
         LICENSE
-        README.md)
+        README.md src/pd_types.h)
