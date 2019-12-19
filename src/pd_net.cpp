@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <string>
 #include <iostream>
+#include <memory>
 
 #include "pd_net.h"
 
@@ -384,10 +385,9 @@ SocketChannel SocketChannel::accept() {
 ssize_t SocketChannel::read(ByteBuffer &dst) {
     // Refill mrbuff if it's empty
     while(!mrbuff.has_remaining()){
-        // Todo: replace Byte array with smart pointer
         size_t n = mrbuff.capacity();
-        Byte* tmp = new Byte[n];
-        ssize_t nread = ::read(msocket.get_socketfd(), (void*)tmp, n);
+        std::unique_ptr<Byte[]> tmp(new Byte[n]);
+        ssize_t nread = ::read(msocket.get_socketfd(), (void*)tmp.get(), n);
         if(nread < 0){
             return -1;
         }else if(nread == 0){
@@ -396,9 +396,8 @@ ssize_t SocketChannel::read(ByteBuffer &dst) {
 
         // Preparing for writing from mrbuff to dst
         mrbuff.clear();
-        mrbuff.put(tmp, 0, nread);
+        mrbuff.put(tmp.get(), 0, nread);
         mrbuff.flip();
-        delete[](tmp);
     }
 
     ssize_t count = 0;
@@ -424,7 +423,7 @@ ssize_t SocketChannel::write(ByteBuffer &src) {
             }
             count += nwrite;
         }
-        
+
         // Preparing reading from src to mwbuff
         mwbuff.clear();
 
