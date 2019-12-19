@@ -9,8 +9,11 @@
 #define BUFFSIZE 8092
 #define SERVER_PORT 8008
 
-int pd_connect(const std::string& hostname, const std::string& port);
-int pd_listen(const std::string& port);
+class ByteBuffer;
+class Socket;
+class SocketAddress;
+class Channel;
+class SocketChannel;
 
 /*ByteBuffer - Buffer of bytes
  */
@@ -24,6 +27,7 @@ public:
     ByteBuffer& operator=(ByteBuffer&& src);
     ~ByteBuffer();
 
+    Byte* array();
     void allocate(size_t capacity);
     void deallocate();
     size_t pos();
@@ -57,7 +61,6 @@ private:
     size_t mcapacity = 0;
     Byte* mbuff = nullptr;
 
-    Byte* array();
     void _incpos(size_t n);
 };
 

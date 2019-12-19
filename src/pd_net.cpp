@@ -365,7 +365,6 @@ SocketChannel::SocketChannel(){
 
 SocketChannel::SocketChannel(Socket socket) {
     msocket = socket;
-    mwbuff.allocate(BUFFSIZE);
     mrbuff.allocate(BUFFSIZE);
 }
 
@@ -409,28 +408,18 @@ ssize_t SocketChannel::read(ByteBuffer &dst) {
 }
 
 ssize_t SocketChannel::write(ByteBuffer &src) {
+    // Write to network at best effort, not sure how many bytes to be written
+    // Todo: this function invaded Bytebuffer raw array.
     ssize_t count = 0;
-    //Todo: should refine write to buffering in mwbuff, instead of sending all bytes to network
-    while(mwbuff.has_remaining() || src.has_remaining()){
-        // Emptying mwbuff
-        while(mwbuff.has_remaining()){
-            //Todo: replace string with byte array smart pointer
-            std::string tmp = mwbuff.to_string();
-            ssize_t nwrite = ::write(msocket.get_socketfd(),
-                    (void*)tmp.c_str(), tmp.size());
-            if(nwrite < 0){
-                return -1;
-            }
-            count += nwrite;
+    if(src.has_remaining()){
+        // Consuming src, it's not thread safe
+        ssize_t nwrite = ::write(msocket.get_socketfd(), src.array()+src.pos(), src.remaining());
+        if(nwrite < 0){
+            return -1;
         }
 
-        // Preparing reading from src to mwbuff
-        mwbuff.clear();
-
-        while(mwbuff.has_remaining() && src.has_remaining()){
-            mwbuff.put(src.get());
-        }
-        mwbuff.flip();
+        count += nwrite;
+        src.pos(src.pos()+nwrite);
     }
     return count;
 }
