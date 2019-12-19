@@ -64,58 +64,73 @@ ByteBuffer::~ByteBuffer(){
     deallocate();
 }
 
+// Return raw array of this buffer
 Byte* ByteBuffer::array(){
     return mbuff;
 }
 
+// Get pos
 size_t ByteBuffer::pos() {
     return mpos;
 }
 
+// Set pos
 void ByteBuffer::pos(size_t newpos) {
     mpos = newpos;
 }
 
+// Get mlimit;
 size_t ByteBuffer::limit() {
     return mlimit;
 }
 
+// Set mlimit
 void ByteBuffer::limit(size_t newlimit) {
     mlimit = newlimit;
 }
 
+// Return capacity of this buffer
 size_t ByteBuffer::capacity() {
     return mcapacity;
 }
 
+// Remaining space between mlimit and mpos
 size_t ByteBuffer::remaining() {
     return mlimit-mpos;
 }
 
+// Return true if there are any space between mlimit and mpos
 bool ByteBuffer::has_remaining() {
     return mpos < mlimit;
 }
 
+// Clear buffer for reading in
 void ByteBuffer::clear() {
     mpos = 0;
     mlimit = mcapacity;
 }
 
+// Flip buffer for writing out
 void ByteBuffer::flip() {
     mlimit = mpos;
     mpos = 0;
 }
 
+// Reset pos as 0
 void ByteBuffer::rewind() {
     mpos = 0;
 }
 
+// Return one byte, increase mpos by 1
 Byte ByteBuffer::get() {
     if(mpos >= mlimit)
         throw std::out_of_range("Pos out of range");
     return mbuff[mpos++];
 }
 
+// Return length bytes to dst. Write start from offset of dst.
+// If this->remaining() is larger than length, throw an error.
+// mpos increase by min(length, this->remaining())
 void ByteBuffer::get(Byte *dst, size_t offset, size_t length) {
     if(length > remaining())
         throw std::length_error("Not enough of remaining items");
@@ -123,20 +138,24 @@ void ByteBuffer::get(Byte *dst, size_t offset, size_t length) {
         dst[i] = get();
 }
 
+// Return byte at index, mpos not changed
 Byte ByteBuffer::get(size_t index) {
     if(index >= mlimit)
         throw std::out_of_range("Index out of range");
     return mbuff[index];
 }
 
+// Return one char, increase pos by sizeof(char)==1
 char ByteBuffer::getchar() {
     return static_cast<char>(get());
 }
 
+// Return one char at index, mpos is not changed
 char ByteBuffer::getchar(size_t index) {
     return static_cast<char>(get(index));
 }
 
+// Put one byte to buffer, increase mpos by 1
 void ByteBuffer::put(Byte b) {
     if(mpos >= mlimit)
         throw std::range_error("Invalid pos");
@@ -145,11 +164,14 @@ void ByteBuffer::put(Byte b) {
     mpos++;
 }
 
-
+// Helper function, increase mpos by n
 void ByteBuffer::_incpos(size_t n) {
     mpos += n;
 }
 
+// Put at most length bytes from src to buffer start from offset.
+// If length > this->remaining(), throw an error.
+// mpos increase by min(length, this->remaining())
 void ByteBuffer::put(Byte *src, size_t offset, size_t length) {
     if(length > remaining())
         throw std::range_error("Not enough of remaining space");
@@ -157,12 +179,14 @@ void ByteBuffer::put(Byte *src, size_t offset, size_t length) {
         put(src[i]);
 }
 
+// Put one byte at index, mpos is not changed.
 void ByteBuffer::put(size_t index, Byte b) {
     if(index >= mlimit)
         throw std::range_error("Index range error");
     mbuff[index] = b;
 }
 
+// Transfer data from src to this buffer, all or nothing
 void ByteBuffer::put(ByteBuffer &src) {
     if(src.remaining() > remaining())
         throw std::range_error("Not enough of remaining space");
@@ -171,14 +195,18 @@ void ByteBuffer::put(ByteBuffer &src) {
     }
 }
 
+// Put one char to this buffer
 void ByteBuffer::putchar(char val) {
     put(static_cast<Byte>(val));
 }
 
+// Put one char at index
 void ByteBuffer::putchar(size_t index, char val) {
     put(index, static_cast<Byte>(val));
 }
 
+// Convert all data in buffer to a string
+// Buffer becomes empty
 std::string ByteBuffer::to_string() {
     std::string ret;
     while(has_remaining())
@@ -190,6 +218,8 @@ std::string ByteBuffer::to_string() {
 /***************************************************
  * SocketAddress implementation
  **************************************************/
+ // Constructing SocketAddress from sockaddr
+ // This is useful when accepting a socket connection
 SocketAddress SocketAddress::from_sockaddr(sockaddr* addr, int length){
     char hostbuff[NI_MAXHOST];
     char servbuff[NI_MAXSERV];
@@ -207,12 +237,11 @@ Socket::Socket() {
     mstatus = SocketStatus::PD_SOCK_UNBOUND;
 }
 
-/*
-* listen - Open and return a listening socket on port.
-* This function is reentrant and protocol-independent.
-*
-*     On error, returns -1 and sets errno.
-*/
+
+// listen - Open and return a listening socket on port.
+// This function is reentrant and protocol-independent.
+//     Return listen socket discriptor
+//     On error, returns -1 and sets errno.
 int Socket::listen(const SocketAddress &bindpoint) {
     addrinfo hints, *listp, *p;
     int listenfd, optval=1;
@@ -253,6 +282,9 @@ int Socket::listen(const SocketAddress &bindpoint) {
     }
 }
 
+// Connect - Connecting to a remote server
+//     Return socket connect file discriptor
+//     One error, return -1
 int Socket::connect(const SocketAddress &endpoint) {
     int connectfd;
     addrinfo hints, *listp, *p;
@@ -286,7 +318,12 @@ int Socket::connect(const SocketAddress &endpoint) {
     }
 }
 
+// Accept - Accepting a new connection
+//     Return a new Socket
+//     One error, exit
 Socket Socket::accept(){
+    if(!islistening())
+        throw std::runtime_error("The server is not listening");
     int cnxxfd;
     sockaddr_in clientaddr;
     int clientlen = sizeof(clientaddr);
@@ -368,19 +405,30 @@ SocketChannel::SocketChannel(Socket socket) {
     mrbuff.allocate(BUFFSIZE);
 }
 
+// Listening at local.mport
+//    Return listening socket file discriptor
 int SocketChannel::listen(const SocketAddress& local) {
     return msocket.listen(local);
 }
 
+// Connect to remote server
+//    Return connect socket file discriptor
 int SocketChannel::connect(const SocketAddress& remote) {
     return msocket.connect(remote);
 }
 
+// Accept a new socket connection
+//    Return a new SocketChannel that's accepted
 SocketChannel SocketChannel::accept() {
     Socket accSocket = msocket.accept();
     return std::move(SocketChannel(accSocket));
 }
 
+// Read from channel to dst
+// Buffered read
+//    Return number of bytes transfered
+//    Return 0 when there is EOF
+//    On error, return -1
 ssize_t SocketChannel::read(ByteBuffer &dst) {
     // Refill mrbuff if it's empty
     while(!mrbuff.has_remaining()){
@@ -407,9 +455,12 @@ ssize_t SocketChannel::read(ByteBuffer &dst) {
     return count;
 }
 
+// Write to network at best effort,
+// Not sure how many bytes to be written
+//    Return number of bytes sent to network
+//    On error, return -1
+// Todo: this function invaded Bytebuffer raw array.
 ssize_t SocketChannel::write(ByteBuffer &src) {
-    // Write to network at best effort, not sure how many bytes to be written
-    // Todo: this function invaded Bytebuffer raw array.
     ssize_t count = 0;
     if(src.has_remaining()){
         // Consuming src, it's not thread safe
