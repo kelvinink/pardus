@@ -337,7 +337,7 @@ Socket Socket::accept(){
     accSocket.set_status(Socket::SocketStatus::PD_SOCK_ACCEPTED);
     accSocket.set_local_addr(get_local_addr());
     accSocket.set_remote_addr(SocketAddress::from_sockaddr((struct sockaddr *)&clientaddr, clientlen));
-    return std::move(accSocket);
+    return accSocket;
 }
 
 void Socket::close() {
@@ -420,7 +420,7 @@ int SocketChannel::connect(const SocketAddress& remote) {
 // Accept a new socket connection
 //    Return a new SocketChannel that's accepted
 SocketChannel SocketChannel::accept() {
-    Socket accSocket = msocket.accept();
+    Socket accSocket = std::move(msocket.accept());
     return std::move(SocketChannel(accSocket));
 }
 
@@ -475,7 +475,7 @@ ssize_t SocketChannel::write(ByteBuffer &src) {
     return count;
 }
 
-Socket SocketChannel::get_socket() {
+Socket SocketChannel::get_socket(){
     return msocket;
 }
 
