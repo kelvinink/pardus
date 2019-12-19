@@ -21,11 +21,11 @@ public:
     ByteBuffer(const ByteBuffer& rhs) = delete;
     ByteBuffer& operator=(const ByteBuffer& rhs) = delete;
     ByteBuffer(ByteBuffer&& src);
+    ByteBuffer& operator=(ByteBuffer&& src);
     ~ByteBuffer();
 
     void allocate(size_t capacity);
     void deallocate();
-    Byte* array();
     size_t pos();
     void pos(size_t newpos);
     size_t limit();
@@ -57,6 +57,7 @@ private:
     size_t mcapacity = 0;
     Byte* mbuff = nullptr;
 
+    Byte* array();
     void _incpos(size_t n);
 };
 
@@ -77,6 +78,7 @@ struct SocketAddress{
     int  mport;
     SocketAddress(){mhost = ""; mport = -1;};
     SocketAddress(const std::string& host, int port):mhost(host),mport(port){}
+    static SocketAddress from_sockaddr(sockaddr* addr, int length);
     std::string to_string(){return mhost + " " + std::to_string(mport);}
 };
 
@@ -88,6 +90,7 @@ public:
     Socket();
     int listen(const SocketAddress& bindpoint);
     int connect(const SocketAddress& endpoint);
+    Socket accept();
     //int connect(const SocketAddress& endpoint, int timeout);
     void close();
     bool islistening();
@@ -127,8 +130,8 @@ public:
     SocketChannel();
     SocketChannel(Socket socket);
 
-    int listen(SocketAddress local);
-    int connect(SocketAddress remote);
+    int listen(const SocketAddress& local);
+    int connect(const SocketAddress& remote);
     SocketChannel accept();
     ssize_t read(ByteBuffer &dst);
     ssize_t write(ByteBuffer &src);

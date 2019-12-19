@@ -3,7 +3,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string>
-#include <vector>
+#include <iostream>
 
 #include "pd_net.h"
 
@@ -19,6 +19,18 @@ ByteBuffer::ByteBuffer(size_t capacity){
 }
 
 ByteBuffer::ByteBuffer(ByteBuffer&& src){
+    mpos = src.mpos;
+    mlimit = src.mlimit;
+    mcapacity = src.mcapacity;
+    mbuff = src.mbuff;
+    src.mbuff = nullptr;
+    src.mpos = 0;
+    src.mlimit = 0;
+    src.mcapacity = 0;
+}
+
+ByteBuffer& ByteBuffer::operator=(ByteBuffer&& src){
+    deallocate();
     mpos = src.mpos;
     mlimit = src.mlimit;
     mcapacity = src.mcapacity;
@@ -76,45 +88,43 @@ size_t ByteBuffer::capacity() {
 }
 
 size_t ByteBuffer::remaining() {
-    return limit()-pos();
+    return mlimit-mpos;
 }
 
 bool ByteBuffer::has_remaining() {
-    return pos() < limit();
+    return mpos < mlimit;
 }
 
 void ByteBuffer::clear() {
-    pos(0);
-    limit(capacity());
+    mpos = 0;
+    mlimit = mcapacity;
 }
 
 void ByteBuffer::flip() {
-    limit(pos());
-    pos(0);
+    mlimit = mpos;
+    mpos = 0;
 }
 
 void ByteBuffer::rewind() {
-    pos(0);
+    mpos = 0;
 }
 
 Byte ByteBuffer::get() {
-    if(pos() >= limit())
-        throw std::out_of_range("Invalid pos");
-    Byte ret = mbuff[pos()];
-    _incpos(1);
-    return ret;
+    if(mpos >= mlimit)
+        throw std::out_of_range("Pos out of range");
+    return mbuff[mpos++];
 }
 
 void ByteBuffer::get(Byte *dst, size_t offset, size_t length) {
     if(length > remaining())
-        throw std::length_error("Length is too large");
+        throw std::length_error("Not enough of remaining items");
     for(int i = offset; i < offset+length; i++)
         dst[i] = get();
 }
 
 Byte ByteBuffer::get(size_t index) {
-    if(index >= limit())
-        throw std::out_of_range("Invalid index");
+    if(index >= mlimit)
+        throw std::out_of_range("Index out of range");
     return mbuff[index];
 }
 
@@ -127,34 +137,34 @@ char ByteBuffer::getchar(size_t index) {
 }
 
 void ByteBuffer::put(Byte b) {
-    if(pos() >= limit())
+    if(mpos >= mlimit)
         throw std::range_error("Invalid pos");
 
-    *(mbuff+pos()) = b;
-    _incpos(1);
+    *(mbuff+mpos) = b;
+    mpos++;
 }
 
 
 void ByteBuffer::_incpos(size_t n) {
-    pos(pos()+n);
+    mpos += n;
 }
 
 void ByteBuffer::put(Byte *src, size_t offset, size_t length) {
     if(length > remaining())
-        throw std::range_error("Length too large");
+        throw std::range_error("Not enough of remaining space");
     for(int i = offset; i < offset+length; i++)
         put(src[i]);
 }
 
 void ByteBuffer::put(size_t index, Byte b) {
-    if(index >= limit())
+    if(index >= mlimit)
         throw std::range_error("Index range error");
     mbuff[index] = b;
 }
 
 void ByteBuffer::put(ByteBuffer &src) {
     if(src.remaining() > remaining())
-        throw std::range_error("Too many items from src");
+        throw std::range_error("Not enough of remaining space");
     while(src.has_remaining()){
         put(src.get());
     }
@@ -173,6 +183,19 @@ std::string ByteBuffer::to_string() {
     while(has_remaining())
         ret.push_back(static_cast<char>(get()));
     return ret;
+}
+
+
+/***************************************************
+ * SocketAddress implementation
+ **************************************************/
+SocketAddress SocketAddress::from_sockaddr(sockaddr* addr, int length){
+    char hostbuff[NI_MAXHOST];
+    char servbuff[NI_MAXSERV];
+    getnameinfo(addr, length, hostbuff, NI_MAXHOST,
+                servbuff, NI_MAXSERV, NI_NUMERICHOST|NI_NUMERICSERV);
+
+    return SocketAddress(std::string(hostbuff), std::stoi(std::string(servbuff)));
 }
 
 
@@ -262,6 +285,23 @@ int Socket::connect(const SocketAddress &endpoint) {
     }
 }
 
+Socket Socket::accept(){
+    int cnxxfd;
+    sockaddr_in clientaddr;
+    int clientlen = sizeof(clientaddr);
+    if ((cnxxfd = ::accept(msocketfd, (struct sockaddr *)&clientaddr, (socklen_t*)&clientlen)) < 0){
+        perror("In accept failed");
+        exit(EXIT_FAILURE);
+    }
+
+    Socket accSocket;
+    accSocket.set_socketfd(cnxxfd);
+    accSocket.set_status(Socket::SocketStatus::PD_SOCK_ACCEPTED);
+    accSocket.set_local_addr(get_local_addr());
+    accSocket.set_remote_addr(SocketAddress::from_sockaddr((struct sockaddr *)&clientaddr, clientlen));
+    return std::move(accSocket);
+}
+
 void Socket::close() {
     ::close(msocketfd);
     mstatus = SocketStatus::PD_SOCK_CLOSED;
@@ -328,41 +368,17 @@ SocketChannel::SocketChannel(Socket socket) {
     mrbuff.allocate(BUFFSIZE);
 }
 
-int SocketChannel::listen(SocketAddress local) {
+int SocketChannel::listen(const SocketAddress& local) {
     return msocket.listen(local);
 }
 
-int SocketChannel::connect(SocketAddress remote) {
+int SocketChannel::connect(const SocketAddress& remote) {
     return msocket.connect(remote);
 }
 
 SocketChannel SocketChannel::accept() {
-    int cnxxfd;
-    sockaddr_in clientaddr;
-    int clientlen = sizeof(clientaddr);
-    if ((cnxxfd = ::accept(msocket.get_socketfd(), (struct sockaddr *)&clientaddr, (socklen_t*)&clientlen)) < 0){
-        perror("In accept failed");
-        exit(EXIT_FAILURE);
-    }
-
-    char hostbuff[NI_MAXHOST];
-    char servbuff[NI_MAXSERV];
-    getnameinfo((struct sockaddr *)&clientaddr, clientlen, hostbuff, NI_MAXHOST,
-            servbuff, NI_MAXSERV, NI_NUMERICHOST|NI_NUMERICSERV);
-    std::string clienthost;
-    std::string clientport;
-    for(int i = 0; i < NI_MAXHOST && hostbuff[i] != '\0'; i++)
-        clienthost.push_back(hostbuff[i]);
-    for(int i = 0; i < NI_MAXSERV && servbuff[i] != '\0'; i++)
-        clientport.push_back(servbuff[i]);
-
-    Socket accSocket;
-    accSocket.set_socketfd(cnxxfd);
-    accSocket.set_status(Socket::SocketStatus::PD_SOCK_ACCEPTED);
-    accSocket.set_local_addr(SocketAddress("localhost", SERVER_PORT));
-    accSocket.set_remote_addr(SocketAddress(clienthost, std::stoi(clientport)));
-    SocketChannel accChan = SocketChannel(accSocket);
-    return std::move(accChan);
+    Socket accSocket = msocket.accept();
+    return std::move(SocketChannel(accSocket));
 }
 
 ssize_t SocketChannel::read(ByteBuffer &dst) {
@@ -408,6 +424,7 @@ ssize_t SocketChannel::write(ByteBuffer &src) {
             }
             count += nwrite;
         }
+        
         // Preparing reading from src to mwbuff
         mwbuff.clear();
 
