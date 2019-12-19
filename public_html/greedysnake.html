@@ -1,0 +1,335 @@
+<!doctype html>
+<html>
+<head>
+    
+      <title>Greedy snake</title>
+      <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+      <meta name="author" content="Kelvin Page" />
+      <meta name="description" content="A simple classic snake game." />
+      <meta name="keywords" content="game,greedySnake,snake,open,source,opensource" />
+
+      <!-- Open Graph tags -->
+      <meta property="og:title" content="Greedy snake" />
+      <meta property="og:description" content="A simple classic snake game." />
+    
+<style>
+	body
+    {
+        background-image: url(./rainbow.jpg);
+    }
+	#container
+    {
+        width: 480px;
+        height: 380px;
+        position: fixed;
+        margin-top: 80px;
+        margin-left: 80px;
+    }
+    #gameName
+    {
+        width: 100px;
+        height: 100px;
+        position: fixed;
+        bottom: 100px;
+        right: 120px;
+        font-family: fantasy;
+        font-size: 80px;
+        color: white;
+    }
+</style>
+</head>
+
+<body>
+
+<div id="container">
+    <canvas id="canvas" width="450px" height="360px" style="border:10px solid #EA4200; width:450px; height:360px;">Your browser</canvas>
+</div>
+
+    
+<div id="gameName">
+    <span>The snake!</span>
+</div>
+    
+<script>
+    var canvas = document.getElementById("canvas");
+    var ctx = canvas.getContext("2d");
+    var snake = [];    // range of the frame is 15 * 12
+    var direction = 1; // -1 is up , 1 is down , -2 is left , 2 is right
+    var keyboard_arrow = 0;
+    var nextPos;
+    var candy;
+    var score = 0;
+    var best = 0;
+    
+    
+    function game()
+    {
+        cls();
+        initialize_snake();
+        draw_candy();
+        snake_main();
+    }
+  
+//***************************************************main function
+
+    function snake_main()
+    {
+            generate_next_Pos_dir();
+            if( check_nextPos() )
+            { 
+                if( candy.x == nextPos.x && candy.y == nextPos.y )
+                {
+                    snake_eat_candy();
+                    candy = generate_candy();
+                    draw_candy();
+                    score += 1;
+                    if( score > best )
+                        best = score;
+                    show_score();
+                }
+                else
+                {
+                    move_snake();
+                }
+                 var ref_timeout = setTimeout( snake_main , 300);
+            }
+            else 
+            {
+                draw_gameover();
+            }
+    }
+game();
+    
+    document.body.onkeyup = function(e)
+    {
+        if(e.keyCode == 32 )
+        {
+            game();
+            //alert("Paused");
+        }
+    }
+//***************************************************Action components
+    
+    
+    function show_score()
+    {
+        
+       // ctx.fillStyle = "rgba(255,165,0,0.1)";
+        //ctx.font = "200px impact";
+       // ctx.fillText( score , 174 , 226 );
+        var posX = Math.floor(Math.random()*15);
+        var posY = Math.floor(Math.random()*12);
+        ctx.fillStyle = "rgba(255,165,0,0.1)";
+        ctx.font = "200px impact";
+        ctx.fillText( score , posX*40 , posY*40 );
+    }
+    
+    
+    function generate_candy()
+    {
+        var posX = Math.floor(Math.random()*15);
+        var posY = Math.floor(Math.random()*12);
+        var posCandy = { x: posX , y: posY };
+        var flag = true;
+        for ( var i = 0 ; i < snake.length ; ++i )
+            if ( posCandy.x == snake[i].x && posCandy.y == snake[i].y )
+                flag = false;
+        if( posCandy == nextPos ) // prevente it from gnerating candy at nextPos
+            flag = false;
+        if ( flag == false )
+            return generate_candy();
+        else
+            return posCandy;
+    }
+    
+
+    
+    
+    function snake_eat_candy() //eat candy
+    {
+        clear_snake();
+        snake.unshift( nextPos );
+        draw_snake();
+    }
+    
+    function move_snake()  //move as usual
+    {                                     
+        clear_snake();
+        snake.pop();
+        snake.unshift( nextPos );
+        draw_snake();
+    }
+    
+    function check_nextPos() // check whether next position is  valid
+    {
+        var flag = true;
+        for ( var i = 0 ; i < snake.length ; ++i )
+            if ( nextPos.x == snake[i].x && nextPos.y == snake[i].y )
+                flag = false;
+        if ( nextPos.x < 0 || nextPos.x > 14 || nextPos.y < 0 || nextPos.y > 11 || flag == false )
+            return false;
+        else
+            return true;
+    }
+    
+    
+    function generate_next_Pos_dir() //generate next position and direction
+    {
+       if ( keyboard_arrow && keyboard_arrow != -(direction) )
+        {
+            switch ( keyboard_arrow )
+            {
+                case 1 :
+                    nextPos = { x: snake[0].x , y: snake[0].y+1 };
+                    break;
+                case -1 :
+                    nextPos = { x: snake[0].x , y: snake[0].y-1 };
+                    break;
+                case 2 :
+                    nextPos = { x: snake[0].x + 1 , y: snake[0].y };
+                    break;
+                case -2 :
+                    nextPos = { x: snake[0].x - 1 , y: snake[0].y };
+                    break;
+            }
+            direction = keyboard_arrow;
+            keyboard_arrow = 0;
+        }
+        else
+        {
+            switch ( direction )
+            {
+                case 1 :
+                    nextPos = { x: snake[0].x , y: snake[0].y+1 };
+                    break;
+                case -1 :
+                    nextPos = { x: snake[0].x , y: snake[0].y-1 };
+                    break;
+                case 2 :
+                    nextPos = { x: snake[0].x + 1 , y: snake[0].y };
+                    break;
+                case -2 :
+                    nextPos = { x: snake[0].x - 1 , y: snake[0].y };
+                    break;
+            }
+        }
+    }
+    
+    
+    document.onkeydown = function(e) //catch the key that user has input
+    {
+        switch (e.keyCode) 
+        {
+            case 37:
+                //alert('left');
+                keyboard_arrow = 2;
+                break;
+            case 38:
+                //alert('up');
+                keyboard_arrow = 1;
+                break;
+            case 39:
+                //alert('right');
+                keyboard_arrow = -2;
+                break;
+            case 40:
+                //alert('down');
+                keyboard_arrow = -1;
+                break;
+            default :
+                keyboard_arrow = 0;
+        }
+    }
+    
+//*******************************************************initialization
+    
+    function initialize_snake()  //initialization
+    {
+        while ( snake.length != 0 )
+            snake.pop();
+        snake.push({ x:3, y:4});
+        snake.push({ x:3, y:3});
+        snake.push({ x:3, y:2});
+        direction = 1;
+        keyboard_arrow = 0;
+        candy = { x: 5 , y: 6 };
+        score = 0;
+    }
+    
+
+//*******************************************************Drawing pictures
+
+    
+    function draw_snake()
+    {
+        for ( var i = 0 ; i < snake.length ; i++ )
+        {
+            if( i == 0 )
+                draw_head( snake[i].x , snake[i].y );
+            else
+                draw_body( snake[i].x , snake[i].y );
+        }
+    }
+    
+    function draw_head( x , y )
+    {
+        ctx.fillStyle = "#32BDBB";
+        ctx.fillRect( x*30 , y*30 , 30 , 30 );
+        ctx.fillStyle = "white";
+        ctx.clearRect ( x*30+6 , y*30+6 , 18 , 18 );
+        ctx.fillStyle = "#32BDBB";
+        ctx.fillRect( x*30+8 , y*30+8 , 14 , 14 );
+    }
+    
+    function draw_body( x , y )
+    {
+        ctx.fillStyle = "#32BDBB";
+        ctx.fillRect( x*30 , y*30 , 30 , 30 );
+        ctx.fillStyle = "white";
+        ctx.clearRect ( x*30+6 , y*30+6 , 18 , 18 );
+        ctx.fillStyle = "#32BDBB";
+        ctx.fillRect( x*30+10 , y*30+10 , 9 , 9 );
+    }
+    
+    function draw_candy()
+    {
+        ctx.beginPath();
+        ctx.arc( candy.x*30 + 14 , candy.y*30 + 14 , 8 , 0 , Math.PI*2 , false );
+        ctx.fillStyle="#7900A5";
+        ctx.fill();
+    }
+    
+    function clear_snake()
+    {
+        for ( var i = 0 ; i < snake.length ; i++ )
+        {
+            ctx.fillStyle = "white";
+            ctx.fillRect( snake[i].x*30 , snake[i].y*30 , 30 , 30 );
+        }
+    }
+    
+    function draw_gameover()
+    {
+        ctx.fillStyle = "#4392F1";
+        ctx.font = "30px impact";
+        ctx.fillText( "Press spacebar to restart" , 74 , 80  );
+        ctx.fillRect( 100 , 100 , 250 , 150 );
+        ctx.fillStyle = "white";
+        ctx.font = "52px impact";
+        ctx.fillText("Game over" , 114 , 180 );
+        ctx.font = "20px impact";
+        ctx.fillStyle = "#FF5D00"
+        ctx.fillText( "Score: "+score , 120 , 220 );
+        ctx.fillText( "Best: "+best , 260 , 220 );
+    }
+    function cls()
+    {
+        ctx.fillStyle = "white";
+        ctx.fillRect( 0 , 0 , 450 , 360 );
+    }
+
+</script>
+
+
+</body>
+</html>
