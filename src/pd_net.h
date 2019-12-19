@@ -6,7 +6,7 @@
 #include "pd_types.h"
 
 #define LISTENQ 1024
-#define BUFFSIZE 8092
+#define BUFFSIZE 8192
 #define SERVER_PORT 8008
 
 class ByteBuffer;
@@ -79,7 +79,7 @@ public:
 struct SocketAddress{
     std::string mhost;
     int  mport;
-    SocketAddress(){mhost = ""; mport = -1;};
+    SocketAddress(){mhost = ""; mport = -1;}
     SocketAddress(const std::string& host, int port):mhost(host),mport(port){}
     static SocketAddress from_sockaddr(sockaddr* addr, int length);
     std::string to_string(){return mhost + " " + std::to_string(mport);}
@@ -144,7 +144,6 @@ public:
 
 private:
     Socket msocket;
-    ByteBuffer mwbuff;
     ByteBuffer mrbuff;
 };
 
