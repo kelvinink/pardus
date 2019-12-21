@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <pthread.h>
 #include <string>
+#include <cstring>
 
 #include "pd_util.h"
 #include "pd_net.h"
@@ -17,9 +18,9 @@ void server_multithread();
 
 
 int main(int argc, char const *argv[]){
-    //server_iterative();
+    server_iterative();
     //server_multiprocess();
-    server_multithread();
+    //server_multithread();
     return 0;
 }
 
@@ -27,6 +28,7 @@ int main(int argc, char const *argv[]){
 void* connection_processor(void* arg){
     SocketChannel* accChan = (SocketChannel*)arg;
     std::cout << "Worker thread processing connection from: " << accChan->get_socket().get_remote_addr().to_string() << std::endl;
+
     // Read from channel
     ByteBuffer buffer(BUFFSIZE);
     buffer.clear();
@@ -40,13 +42,15 @@ void* connection_processor(void* arg){
     buffer.flip();
     accChan->write(buffer);
     accChan->close();
+
+    delete accChan;
     return nullptr;
 }
 void server_multithread(){
     SocketChannel sockchan;
     int server_fd = sockchan.listen(SocketAddress("localhost", SERVER_PORT));
     if(server_fd < 0){
-        perror("Bind to port SERVER_PORT failed");
+        std::cerr << "Bind to port SERVER_PORT failed: " << std::strerror(errno) << std::endl;
     }
 
     std::cout << "Is server listening: " << sockchan.get_socket().islistening() << std::endl;
@@ -60,7 +64,7 @@ void server_multithread(){
         pthread_t tid;
         int err;
         if((err = pthread_create(&tid, nullptr, connection_processor, accChan)) != 0){
-            perror("Thread spawn error");
+            std::cerr << "Thread spawn error: " << std::strerror(errno) << std::endl;
         }
         pthread_detach(tid);
         std::cout << "Main thread continue listening from clients" << std::endl;
@@ -72,7 +76,7 @@ void server_multiprocess(){
     SocketChannel sockchan;
     int server_fd = sockchan.listen(SocketAddress("localhost", SERVER_PORT));
     if(server_fd < 0){
-        perror("Bind to port SERVER_PORT failed");
+        std::cerr << "Bind to port SERVER_PORT failed: " << std::strerror(errno) << std::endl;
     }
 
     std::cout << "Is server listening: " << sockchan.get_socket().islistening() << std::endl;
@@ -85,7 +89,7 @@ void server_multiprocess(){
 
         pid_t pid;
         if((pid = fork()) < 0){
-            perror("Fork error");
+            std::cerr << "Fork error: " << std::strerror(errno) << std::endl;
         }else if(pid == 0){
             std::cout << "Child processing connection from: " << accChan.get_socket().get_remote_addr().to_string() << std::endl;
             // Read from channel
@@ -115,7 +119,7 @@ void server_iterative(){
     SocketChannel sockchan;
     int server_fd = sockchan.listen(SocketAddress("localhost", SERVER_PORT));
     if(server_fd < 0){
-        perror("Bind to port SERVER_PORT failed");
+        std::cerr << "Bind to port SERVER_PORT failed: " << std::strerror(errno) << std::endl;
     }
 
     std::cout << "Is server listening: " << sockchan.get_socket().islistening() << std::endl;
