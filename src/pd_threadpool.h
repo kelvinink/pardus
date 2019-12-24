@@ -1,10 +1,13 @@
 #include <mutex>
-#include <condition_variable>
-#include <functional>
 #include <queue>
 #include <thread>
-typedef std::function<void()> Task;
+#include <functional>
+#include <condition_variable>
 
+namespace pardus {
+namespace threadpool{
+
+typedef std::function<void()> Task;
 
 class ThreadPool {
 public:
@@ -12,10 +15,8 @@ public:
     ThreadPool(ThreadPool&&) = default;
     explicit ThreadPool(size_t size);
     ~ThreadPool();
-
     template <class Fn, class... Args>
     void submit(Fn&& fn, Args&&... args);
-
 private:
     struct Pool {
         std::mutex mMutex;
@@ -26,7 +27,6 @@ private:
     std::shared_ptr<Pool> mPool;
 };
 
-
 ThreadPool::~ThreadPool() {
     if (mPool) {
         {
@@ -36,7 +36,6 @@ ThreadPool::~ThreadPool() {
         mPool->mCV.notify_all();
     }
 }
-
 
 template <class Fn, class... Args>
 void ThreadPool::submit(Fn&& fn, Args&&... args) {
@@ -49,7 +48,7 @@ void ThreadPool::submit(Fn&& fn, Args&&... args) {
 }
 
 ThreadPool::ThreadPool(size_t size)
-    : mPool(std::make_shared<Pool>()) {
+        : mPool(std::make_shared<Pool>()) {
     for (size_t i = 0; i < size; ++i) {
         std::thread([p = mPool] {
             std::unique_lock<std::mutex> lck(p->mMutex);
@@ -69,3 +68,6 @@ ThreadPool::ThreadPool(size_t size)
         }).detach();
     }
 }
+
+}// namespace threadpool
+}// namespace pardus

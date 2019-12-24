@@ -1,16 +1,19 @@
+#include "pd_net.h"
+
 #include <unistd.h>
 #include <cstring>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string>
-#include <iostream>
 #include <memory>
+#include <iostream>
 
-#include "pd_net.h"
+namespace pardus {
+namespace nio {
 
 /***************************
- * BytBuffer implementation
- **************************/
+* BytBuffer implementation
+**************************/
 ByteBuffer::ByteBuffer(){
     ByteBuffer(0);
 }
@@ -24,10 +27,15 @@ ByteBuffer::ByteBuffer(ByteBuffer&& src){
     mLimit = src.mLimit;
     mCapacity = src.mCapacity;
     mBuff = src.mBuff;
+
     src.mBuff = nullptr;
     src.mPos = 0;
     src.mLimit = 0;
     src.mCapacity = 0;
+}
+
+ByteBuffer::~ByteBuffer(){
+    deallocate();
 }
 
 ByteBuffer& ByteBuffer::operator=(ByteBuffer&& src){
@@ -37,6 +45,7 @@ ByteBuffer& ByteBuffer::operator=(ByteBuffer&& src){
     mLimit = src.mLimit;
     mCapacity = src.mCapacity;
     mBuff = src.mBuff;
+
     src.mBuff = nullptr;
     src.mPos = 0;
     src.mLimit = 0;
@@ -45,6 +54,7 @@ ByteBuffer& ByteBuffer::operator=(ByteBuffer&& src){
 
 void ByteBuffer::allocate(size_t capacity){
     deallocate();
+
     mBuff = new Byte[capacity];
     mPos = 0;
     mLimit = 0;
@@ -53,14 +63,11 @@ void ByteBuffer::allocate(size_t capacity){
 
 void ByteBuffer::deallocate(){
     delete[](mBuff);
+
     mBuff = nullptr;
     mPos = 0;
     mLimit = 0;
     mCapacity = 0;
-}
-
-ByteBuffer::~ByteBuffer(){
-    deallocate();
 }
 
 // Return raw array of this buffer
@@ -99,7 +106,7 @@ size_t ByteBuffer::remaining() {
 }
 
 // Return true if there are any space between mLimit and mPos
-bool ByteBuffer::has_remaining() {
+bool ByteBuffer::hasRemaining() {
     return mPos < mLimit;
 }
 
@@ -184,7 +191,7 @@ void ByteBuffer::put(size_t index, Byte b) {
 void ByteBuffer::put(ByteBuffer &src) {
     if(src.remaining() > remaining())
         throw std::range_error("Not enough of remaining space");
-    while(src.has_remaining()){
+    while(src.hasRemaining()){
         put(src.get());
     }
 }
@@ -201,20 +208,20 @@ void ByteBuffer::putchar(size_t index, char val) {
 
 // Convert all data in buffer to a string
 // Buffer becomes empty
-std::string ByteBuffer::to_string() {
+std::string ByteBuffer::toString() {
     std::string ret;
-    while(has_remaining())
+    while(hasRemaining())
         ret.push_back(static_cast<char>(get()));
     return ret;
 }
 
 
 /******************************
- * SocketAddress implementation
- ******************************/
- // Constructing SocketAddress from sockaddr
- // This is useful when accepting a socket connection
-SocketAddress SocketAddress::from_sockaddr(sockaddr* addr, int length){
+* SocketAddress implementation
+******************************/
+// Constructing SocketAddress from sockaddr
+// This is useful when accepting a socket connection
+SocketAddress SocketAddress::fromSockaddr(sockaddr* addr, int length){
     char hostbuff[NI_MAXHOST];
     char servbuff[NI_MAXSERV];
     getnameinfo(addr, length, hostbuff, NI_MAXHOST,
@@ -225,8 +232,8 @@ SocketAddress SocketAddress::from_sockaddr(sockaddr* addr, int length){
 
 
 /************************
- * Socket implementation
- ***********************/
+* Socket implementation
+***********************/
 Socket::Socket(){
     //[Note] Effective cpp item4: Make sure that objects are initialized before they are used
     clear();
@@ -254,14 +261,12 @@ Socket::~Socket(){
     }
 }
 
-
 void Socket::clear(){
     mSocketFd = -1;
     mLocalAddr = SocketAddress();
     mRemoteAddr = SocketAddress();
     mStatus = Status::PD_SOCK_UNBOUND;
 }
-
 
 // listen - Open and return a listening socket on port.
 // This function is reentrant and protocol-independent.
@@ -347,7 +352,7 @@ int Socket::connect(const SocketAddress &endpoint) {
 //     Return a new Socket
 //     One error, exit
 Socket Socket::accept(){
-    if(!(get_status() == Socket::Status::PD_SOCK_LISTENING))
+    if(!(getStatus() == Socket::Status::PD_SOCK_LISTENING))
         throw std::runtime_error("The server is not listening");
     int cnxxfd;
     sockaddr_in clientaddr;
@@ -360,8 +365,8 @@ Socket Socket::accept(){
     Socket accSocket;
     accSocket.mSocketFd = cnxxfd;
     accSocket.mStatus = Socket::Status::PD_SOCK_ACCEPTED;
-    accSocket.mLocalAddr = get_local_addr();
-    accSocket.mRemoteAddr = SocketAddress::from_sockaddr((struct sockaddr *)&clientaddr, clientlen);
+    accSocket.mLocalAddr = getLocalAddr();
+    accSocket.mRemoteAddr = SocketAddress::fromSockaddr((struct sockaddr *) &clientaddr, clientlen);
     return std::move(accSocket);
 }
 
@@ -374,26 +379,25 @@ void Socket::close() {
     mStatus = Status::PD_SOCK_CLOSED;
 }
 
-SocketAddress Socket::get_local_addr() {
+SocketAddress Socket::getLocalAddr() {
     return mLocalAddr;
 }
 
-SocketAddress Socket::get_remote_addr() {
+SocketAddress Socket::getRemoteAddr() {
     return mRemoteAddr;
 }
 
-int Socket::get_status(){
+int Socket::getStatus(){
     return mStatus;
 }
 
-int Socket::get_socketfd(){
+int Socket::getSocketFd(){
     return mSocketFd;
 }
 
-
 /******************************
- * SocketChannel implementation
- ******************************/
+* SocketChannel implementation
+******************************/
 SocketChannel::SocketChannel(){
     SocketChannel(Socket());
 }
@@ -402,7 +406,6 @@ SocketChannel::SocketChannel(Socket socket) {
     mSocket = std::move(socket);
     mRbuff.allocate(BUFFSIZE);
 }
-
 
 // Listening at local.mPort
 //    Return listening socket file discriptor
@@ -429,10 +432,10 @@ SocketChannel SocketChannel::accept() {
 //    On error, return -1
 ssize_t SocketChannel::read(ByteBuffer &dst) {
     // Refill mRbuff if it's empty
-    while(!mRbuff.has_remaining()){
+    while(!mRbuff.hasRemaining()){
         size_t n = mRbuff.capacity();
         std::unique_ptr<Byte[]> tmp(new Byte[n]);
-        ssize_t nread = ::read(mSocket.get_socketfd(), (void*)tmp.get(), n);
+        ssize_t nread = ::read(mSocket.getSocketFd(), (void*)tmp.get(), n);
         if(nread < 0){
             return -1;
         }else if(nread == 0){
@@ -446,7 +449,7 @@ ssize_t SocketChannel::read(ByteBuffer &dst) {
     }
 
     ssize_t count = 0;
-    while(mRbuff.has_remaining() && dst.has_remaining()){
+    while(mRbuff.hasRemaining() && dst.hasRemaining()){
         dst.put(mRbuff.get());
         count++;
     }
@@ -460,13 +463,12 @@ ssize_t SocketChannel::read(ByteBuffer &dst) {
 // Todo: this function invaded Bytebuffer raw array.
 ssize_t SocketChannel::write(ByteBuffer &src) {
     ssize_t count = 0;
-    if(src.has_remaining()){
+    if(src.hasRemaining()){
         // Consuming src, it's not thread safe
-        ssize_t nwrite = ::write(mSocket.get_socketfd(), src.array() + src.pos(), src.remaining());
+        ssize_t nwrite = ::write(mSocket.getSocketFd(), src.array() + src.pos(), src.remaining());
         if(nwrite < 0){
             return -1;
         }
-
         count += nwrite;
         src.pos(src.pos()+nwrite);
     }
@@ -477,38 +479,41 @@ void SocketChannel::close() {
     mSocket.close();
 }
 
-bool SocketChannel::is_open() {
-    return !(mSocket.get_status() == Socket::Status::PD_SOCK_CLOSED);
+bool SocketChannel::isOpen() {
+    return !(mSocket.getStatus() == Socket::Status::PD_SOCK_CLOSED);
 }
 
-
-bool SocketChannel::is_listening() {
-    return get_status() == Socket::Status::PD_SOCK_LISTENING;
+bool SocketChannel::isListening() {
+    return getStatus() == Socket::Status::PD_SOCK_LISTENING;
 }
 
-bool SocketChannel::is_connected() {
-    return get_status() == Socket::Status::PD_SOCK_CONNECTED;
+bool SocketChannel::isConnected() {
+    return getStatus() == Socket::Status::PD_SOCK_CONNECTED;
 }
 
-bool SocketChannel::is_accepted() {
-    return get_status() == Socket::Status::PD_SOCK_ACCEPTED;
+bool SocketChannel::isAccepted() {
+    return getStatus() == Socket::Status::PD_SOCK_ACCEPTED;
 }
 
-bool SocketChannel::is_closed() {
-    return get_status() == Socket::Status::PD_SOCK_CLOSED;
+bool SocketChannel::isClosed() {
+    return getStatus() == Socket::Status::PD_SOCK_CLOSED;
 }
 
-int SocketChannel::get_status(){
-    return mSocket.get_status();
+int SocketChannel::getStatus(){
+    return mSocket.getStatus();
 }
 
-SocketAddress SocketChannel::get_local_addr() {
-    return mSocket.get_local_addr();
+SocketAddress SocketChannel::getLocalAddr() {
+    return mSocket.getLocalAddr();
 }
 
-SocketAddress SocketChannel::get_remote_addr() {
-    return mSocket.get_remote_addr();
+SocketAddress SocketChannel::getRemoteAddr() {
+    return mSocket.getRemoteAddr();
 }
+
+} // namespace nio
+} // namespace pardus
+
 
 
 
