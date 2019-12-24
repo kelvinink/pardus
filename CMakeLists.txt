@@ -17,7 +17,7 @@ add_executable(pardus
         src/pd_util.cpp
         src/pd_util.h
         LICENSE
-        README.md src/pd_types.h)
+        README.md src/pd_types.h src/pd_threadpool.h)
 
 target_link_libraries(pardus
         pthread)
