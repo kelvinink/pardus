@@ -21,8 +21,8 @@ class ByteBuffer{
 public:
     ByteBuffer();
     ByteBuffer(size_t capacity);
-    ByteBuffer(const ByteBuffer& rhs) = delete;
-    ByteBuffer& operator=(const ByteBuffer& rhs) = delete;
+    ByteBuffer(const ByteBuffer&) = delete;
+    ByteBuffer& operator=(const ByteBuffer&) = delete;
     ByteBuffer(ByteBuffer&& src);
     ByteBuffer& operator=(ByteBuffer&& src);
     ~ByteBuffer();
@@ -56,12 +56,10 @@ public:
     std::string to_string();
 
 private:
-    size_t mpos = 0;
-    size_t mlimit = 0;
-    size_t mcapacity = 0;
-    Byte* mbuff = nullptr;
-
-    void _incpos(size_t n);
+    size_t mPos = 0;
+    size_t mLimit = 0;
+    size_t mCapacity = 0;
+    Byte* mBuff = nullptr;
 };
 
 
@@ -71,18 +69,20 @@ class Channel{
 public:
     virtual void close() = 0;
     virtual bool is_open() = 0;
+    //[Note] Effective cpp item7: Declare destructors virtual in polymorphic base classes
+    virtual ~Channel(){}
 };
 
 
 /* SocketAddress
  */
 struct SocketAddress{
-    std::string mhost;
-    int  mport;
-    SocketAddress(){mhost = ""; mport = -1;}
-    SocketAddress(const std::string& host, int port):mhost(host),mport(port){}
+    std::string mHost;
+    int  mPort;
+    SocketAddress(){ mHost = ""; mPort = -1;}
+    SocketAddress(const std::string& host, int port): mHost(host), mPort(port){}
     static SocketAddress from_sockaddr(sockaddr* addr, int length);
-    std::string to_string(){return mhost + " " + std::to_string(mport);}
+    std::string to_string(){return mHost + " " + std::to_string(mPort);}
 };
 
 
@@ -91,26 +91,25 @@ struct SocketAddress{
 class Socket{
 public:
     Socket();
+    Socket(const Socket&) = delete;
+    Socket(Socket&& rhs);
+    Socket& operator=(const Socket&) = delete;
+    Socket& operator=(Socket&&);
+    ~Socket();
     int listen(const SocketAddress& bindpoint);
     int connect(const SocketAddress& endpoint);
-    Socket accept();
     //int connect(const SocketAddress& endpoint, int timeout);
+    Socket accept();
     void close();
-    bool islistening();
-    bool isconnected();
-    bool isaccepted();
-    bool isclosed();
+    int get_status();
+    int get_socketfd();
     SocketAddress get_local_addr();
     SocketAddress get_remote_addr();
-    void set_local_addr(const SocketAddress& local);
-    void set_remote_addr(const SocketAddress& remote);
-    int get_status();
-    void set_status(int status);
-    int get_socketfd();
-    void set_socketfd(int socketfd);
+
 
 public:
-    enum SocketStatus{
+    // [Note] Effective cpp item2: Prefer consts, enums, and inlines to #defines
+    enum Status{
         PD_SOCK_UNBOUND,
         PD_SOCK_LISTENING,
         PD_SOCK_CONNECTED,
@@ -119,10 +118,13 @@ public:
     };
 
 private:
-    SocketAddress mlocaladdr;
-    SocketAddress mremoteaddr;
-    int mstatus;
-    int msocketfd;
+    void clear();
+
+private:
+    SocketAddress mLocalAddr;
+    SocketAddress mRemoteAddr;
+    int mStatus;
+    int mSocketFd;
 };
 
 
@@ -138,13 +140,19 @@ public:
     SocketChannel accept();
     ssize_t read(ByteBuffer &dst);
     ssize_t write(ByteBuffer &src);
-    Socket get_socket();
     void close() override ;
     bool is_open() override;
+    bool is_listening();
+    bool is_connected();
+    bool is_accepted();
+    bool is_closed();
+    int get_status();
+    SocketAddress get_local_addr();
+    SocketAddress get_remote_addr();
 
 private:
-    Socket msocket;
-    ByteBuffer mrbuff;
+    Socket mSocket;
+    ByteBuffer mRbuff;
 };
 
 #endif //PD_NET_H

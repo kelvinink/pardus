@@ -8,9 +8,9 @@
 
 #include "pd_net.h"
 
-/***************************************************
+/***************************
  * BytBuffer implementation
- **************************************************/
+ **************************/
 ByteBuffer::ByteBuffer(){
     ByteBuffer(0);
 }
@@ -20,44 +20,43 @@ ByteBuffer::ByteBuffer(size_t capacity){
 }
 
 ByteBuffer::ByteBuffer(ByteBuffer&& src){
-    mpos = src.mpos;
-    mlimit = src.mlimit;
-    mcapacity = src.mcapacity;
-    mbuff = src.mbuff;
-    src.mbuff = nullptr;
-    src.mpos = 0;
-    src.mlimit = 0;
-    src.mcapacity = 0;
+    mPos = src.mPos;
+    mLimit = src.mLimit;
+    mCapacity = src.mCapacity;
+    mBuff = src.mBuff;
+    src.mBuff = nullptr;
+    src.mPos = 0;
+    src.mLimit = 0;
+    src.mCapacity = 0;
 }
 
 ByteBuffer& ByteBuffer::operator=(ByteBuffer&& src){
     deallocate();
-    mpos = src.mpos;
-    mlimit = src.mlimit;
-    mcapacity = src.mcapacity;
-    mbuff = src.mbuff;
-    src.mbuff = nullptr;
-    src.mpos = 0;
-    src.mlimit = 0;
-    src.mcapacity = 0;
+    // [Note] Effective cpp item12: copy or move all parts of an object
+    mPos = src.mPos;
+    mLimit = src.mLimit;
+    mCapacity = src.mCapacity;
+    mBuff = src.mBuff;
+    src.mBuff = nullptr;
+    src.mPos = 0;
+    src.mLimit = 0;
+    src.mCapacity = 0;
 }
 
 void ByteBuffer::allocate(size_t capacity){
-    //Todo: to strengthen memory management
     deallocate();
-    mbuff = new Byte[capacity];
-    mpos = 0;
-    mlimit = 0;
-    mcapacity = capacity;
+    mBuff = new Byte[capacity];
+    mPos = 0;
+    mLimit = 0;
+    mCapacity = capacity;
 }
 
 void ByteBuffer::deallocate(){
-    //Todo: to strengthen memory management
-    delete[](mbuff);
-    mbuff = nullptr;
-    mpos = 0;
-    mlimit = 0;
-    mcapacity = 0;
+    delete[](mBuff);
+    mBuff = nullptr;
+    mPos = 0;
+    mLimit = 0;
+    mCapacity = 0;
 }
 
 ByteBuffer::~ByteBuffer(){
@@ -66,71 +65,71 @@ ByteBuffer::~ByteBuffer(){
 
 // Return raw array of this buffer
 Byte* ByteBuffer::array(){
-    return mbuff;
+    return mBuff;
 }
 
 // Get pos
 size_t ByteBuffer::pos() {
-    return mpos;
+    return mPos;
 }
 
 // Set pos
 void ByteBuffer::pos(size_t newpos) {
-    mpos = newpos;
+    mPos = newpos;
 }
 
-// Get mlimit;
+// Get mLimit;
 size_t ByteBuffer::limit() {
-    return mlimit;
+    return mLimit;
 }
 
-// Set mlimit
+// Set mLimit
 void ByteBuffer::limit(size_t newlimit) {
-    mlimit = newlimit;
+    mLimit = newlimit;
 }
 
 // Return capacity of this buffer
 size_t ByteBuffer::capacity() {
-    return mcapacity;
+    return mCapacity;
 }
 
-// Remaining space between mlimit and mpos
+// Remaining space between mLimit and mPos
 size_t ByteBuffer::remaining() {
-    return mlimit-mpos;
+    return mLimit - mPos;
 }
 
-// Return true if there are any space between mlimit and mpos
+// Return true if there are any space between mLimit and mPos
 bool ByteBuffer::has_remaining() {
-    return mpos < mlimit;
+    return mPos < mLimit;
 }
 
 // Clear buffer for reading in
 void ByteBuffer::clear() {
-    mpos = 0;
-    mlimit = mcapacity;
+    mPos = 0;
+    mLimit = mCapacity;
 }
 
 // Flip buffer for writing out
 void ByteBuffer::flip() {
-    mlimit = mpos;
-    mpos = 0;
+    mLimit = mPos;
+    mPos = 0;
 }
 
 // Reset pos as 0
 void ByteBuffer::rewind() {
-    mpos = 0;
+    mPos = 0;
 }
 
-// Return one byte, increase mpos by 1
+// Return one byte, increase mPos by 1
 Byte ByteBuffer::get() {
-    if(mpos >= mlimit)
+    if(mPos >= mLimit)
         throw std::out_of_range("Pos out of range");
-    return mbuff[mpos++];
+    return mBuff[mPos++];
 }
 
 // Return length bytes to dst. Write start from offset of dst.
 // If this->remaining() is larger than length, throw an error.
-// mpos increase by min(length, this->remaining())
+// mPos increase by min(length, this->remaining())
 void ByteBuffer::get(Byte *dst, size_t offset, size_t length) {
     if(length > remaining())
         throw std::length_error("Not enough of remaining items");
@@ -138,11 +137,11 @@ void ByteBuffer::get(Byte *dst, size_t offset, size_t length) {
         dst[i] = get();
 }
 
-// Return byte at index, mpos not changed
+// Return byte at index, mPos not changed
 Byte ByteBuffer::get(size_t index) {
-    if(index >= mlimit)
+    if(index >= mLimit)
         throw std::out_of_range("Index out of range");
-    return mbuff[index];
+    return mBuff[index];
 }
 
 // Return one char, increase pos by sizeof(char)==1
@@ -150,28 +149,23 @@ char ByteBuffer::getchar() {
     return static_cast<char>(get());
 }
 
-// Return one char at index, mpos is not changed
+// Return one char at index, mPos is not changed
 char ByteBuffer::getchar(size_t index) {
     return static_cast<char>(get(index));
 }
 
-// Put one byte to buffer, increase mpos by 1
+// Put one byte to buffer, increase mPos by 1
 void ByteBuffer::put(Byte b) {
-    if(mpos >= mlimit)
+    if(mPos >= mLimit)
         throw std::range_error("Invalid pos");
 
-    *(mbuff+mpos) = b;
-    mpos++;
-}
-
-// Helper function, increase mpos by n
-void ByteBuffer::_incpos(size_t n) {
-    mpos += n;
+    *(mBuff + mPos) = b;
+    mPos++;
 }
 
 // Put at most length bytes from src to buffer start from offset.
 // If length > this->remaining(), throw an error.
-// mpos increase by min(length, this->remaining())
+// mPos increase by min(length, this->remaining())
 void ByteBuffer::put(Byte *src, size_t offset, size_t length) {
     if(length > remaining())
         throw std::range_error("Not enough of remaining space");
@@ -179,11 +173,11 @@ void ByteBuffer::put(Byte *src, size_t offset, size_t length) {
         put(src[i]);
 }
 
-// Put one byte at index, mpos is not changed.
+// Put one byte at index, mPos is not changed.
 void ByteBuffer::put(size_t index, Byte b) {
-    if(index >= mlimit)
+    if(index >= mLimit)
         throw std::range_error("Index range error");
-    mbuff[index] = b;
+    mBuff[index] = b;
 }
 
 // Transfer data from src to this buffer, all or nothing
@@ -215,9 +209,9 @@ std::string ByteBuffer::to_string() {
 }
 
 
-/***************************************************
+/******************************
  * SocketAddress implementation
- **************************************************/
+ ******************************/
  // Constructing SocketAddress from sockaddr
  // This is useful when accepting a socket connection
 SocketAddress SocketAddress::from_sockaddr(sockaddr* addr, int length){
@@ -230,11 +224,42 @@ SocketAddress SocketAddress::from_sockaddr(sockaddr* addr, int length){
 }
 
 
-/***************************************************
+/************************
  * Socket implementation
- **************************************************/
-Socket::Socket() {
-    mstatus = SocketStatus::PD_SOCK_UNBOUND;
+ ***********************/
+Socket::Socket(){
+    //[Note] Effective cpp item4: Make sure that objects are initialized before they are used
+    clear();
+}
+
+Socket::Socket(Socket&& rhs){
+    operator=(std::forward<Socket>(rhs));
+}
+
+Socket& Socket::operator=(Socket&& rhs){
+    mSocketFd = rhs.mSocketFd;
+    mLocalAddr = rhs.mLocalAddr;
+    mRemoteAddr = rhs.mRemoteAddr;
+    mStatus = rhs.mStatus;
+    rhs.clear();
+}
+
+Socket::~Socket(){
+    // [Note] Effective cpp Item8: Prevent exceptions from leaving destructors
+    // All exceptions should have been catched and processed.
+    try{
+        this->close();
+    }catch(std::exception& e){
+        std::cerr << "Destructing socket failed: " << e.what() << std::endl;
+    }
+}
+
+
+void Socket::clear(){
+    mSocketFd = -1;
+    mLocalAddr = SocketAddress();
+    mRemoteAddr = SocketAddress();
+    mStatus = Status::PD_SOCK_UNBOUND;
 }
 
 
@@ -252,7 +277,7 @@ int Socket::listen(const SocketAddress &bindpoint) {
     hints.ai_flags = AI_PASSIVE;      /* ... on any IP address */
     hints.ai_flags |= AI_NUMERICSERV; /* ... using a numeric port arg. */
     hints.ai_flags |= AI_ADDRCONFIG;  /* Recommended for connections */
-    getaddrinfo(NULL, std::to_string(bindpoint.mport).c_str(), &hints, &listp);
+    getaddrinfo(NULL, std::to_string(bindpoint.mPort).c_str(), &hints, &listp);
 
     /* Walk the list for one that we can bind to */
     for (p = listp; p; p = p->ai_next) {
@@ -275,9 +300,9 @@ int Socket::listen(const SocketAddress &bindpoint) {
     if (::listen(listenfd, LISTENQ) < 0){
         return -1;
     }else{
-        msocketfd = listenfd;
-        mlocaladdr = bindpoint;
-        mstatus = SocketStatus::PD_SOCK_LISTENING;
+        mSocketFd = listenfd;
+        mLocalAddr = bindpoint;
+        mStatus = Status::PD_SOCK_LISTENING;
         return listenfd;
     }
 }
@@ -294,7 +319,7 @@ int Socket::connect(const SocketAddress &endpoint) {
     hints.ai_socktype = SOCK_STREAM;  /* Open a connection */
     hints.ai_flags = AI_NUMERICSERV;  /* ... using a numeric port arg. */
     hints.ai_flags |= AI_ADDRCONFIG;  /* Recommended for connections */
-    getaddrinfo(endpoint.mhost.c_str(), std::to_string(endpoint.mport).c_str(), &hints, &listp);
+    getaddrinfo(endpoint.mHost.c_str(), std::to_string(endpoint.mPort).c_str(), &hints, &listp);
 
     /* Walk the list for one that we can successfully connect to */
     for (p = listp; p != nullptr; p = p->ai_next) {
@@ -311,9 +336,9 @@ int Socket::connect(const SocketAddress &endpoint) {
         return -1;
     }
     else{
-        msocketfd = connectfd;
-        mremoteaddr = endpoint;
-        mstatus = SocketStatus::PD_SOCK_CONNECTED;
+        mSocketFd = connectfd;
+        mRemoteAddr = endpoint;
+        mStatus = Status::PD_SOCK_CONNECTED;
         return connectfd;
     }
 }
@@ -322,106 +347,79 @@ int Socket::connect(const SocketAddress &endpoint) {
 //     Return a new Socket
 //     One error, exit
 Socket Socket::accept(){
-    if(!islistening())
+    if(!(get_status() == Socket::Status::PD_SOCK_LISTENING))
         throw std::runtime_error("The server is not listening");
     int cnxxfd;
     sockaddr_in clientaddr;
     int clientlen = sizeof(clientaddr);
-    if ((cnxxfd = ::accept(msocketfd, (struct sockaddr *)&clientaddr, (socklen_t*)&clientlen)) < 0){
-        perror("In accept failed");
+    if ((cnxxfd = ::accept(mSocketFd, (struct sockaddr *)&clientaddr, (socklen_t*)&clientlen)) < 0){
+        std::cerr << "In accept failed: " << std::strerror(errno) << std::endl;
         exit(EXIT_FAILURE);
     }
 
     Socket accSocket;
-    accSocket.set_socketfd(cnxxfd);
-    accSocket.set_status(Socket::SocketStatus::PD_SOCK_ACCEPTED);
-    accSocket.set_local_addr(get_local_addr());
-    accSocket.set_remote_addr(SocketAddress::from_sockaddr((struct sockaddr *)&clientaddr, clientlen));
-    return accSocket;
+    accSocket.mSocketFd = cnxxfd;
+    accSocket.mStatus = Socket::Status::PD_SOCK_ACCEPTED;
+    accSocket.mLocalAddr = get_local_addr();
+    accSocket.mRemoteAddr = SocketAddress::from_sockaddr((struct sockaddr *)&clientaddr, clientlen);
+    return std::move(accSocket);
 }
 
 void Socket::close() {
-    ::close(msocketfd);
-    mstatus = SocketStatus::PD_SOCK_CLOSED;
+    if(mSocketFd >= 0){
+        if(::close(mSocketFd) < 0)
+            throw std::runtime_error("Socket close failed");
+        clear();
+    }
+    mStatus = Status::PD_SOCK_CLOSED;
 }
 
 SocketAddress Socket::get_local_addr() {
-    return mlocaladdr;
+    return mLocalAddr;
 }
 
 SocketAddress Socket::get_remote_addr() {
-    return mremoteaddr;
-}
-
-void Socket::set_local_addr(const SocketAddress& local){
-    mlocaladdr = local;
-}
-void Socket::set_remote_addr(const SocketAddress& remote){
-    mremoteaddr = remote;
+    return mRemoteAddr;
 }
 
 int Socket::get_status(){
-    return mstatus;
-}
-
-void Socket::set_status(int status){
-    mstatus = status;
+    return mStatus;
 }
 
 int Socket::get_socketfd(){
-    return msocketfd;
-}
-
-void Socket::set_socketfd(int socketfd){
-    msocketfd = socketfd;
-}
-
-bool Socket::islistening(){
-    return mstatus == SocketStatus::PD_SOCK_LISTENING;
-}
-
-bool Socket::isconnected() {
-    return mstatus == SocketStatus::PD_SOCK_CONNECTED;
-}
-
-bool Socket::isclosed() {
-    return mstatus == SocketStatus::PD_SOCK_CLOSED;
-}
-
-bool Socket::isaccepted(){
-    return mstatus == SocketStatus ::PD_SOCK_ACCEPTED;
+    return mSocketFd;
 }
 
 
-/***************************************************
+/******************************
  * SocketChannel implementation
- **************************************************/
+ ******************************/
 SocketChannel::SocketChannel(){
     SocketChannel(Socket());
 }
 
 SocketChannel::SocketChannel(Socket socket) {
-    msocket = socket;
-    mrbuff.allocate(BUFFSIZE);
+    mSocket = std::move(socket);
+    mRbuff.allocate(BUFFSIZE);
 }
 
-// Listening at local.mport
+
+// Listening at local.mPort
 //    Return listening socket file discriptor
 int SocketChannel::listen(const SocketAddress& local) {
-    return msocket.listen(local);
+    return mSocket.listen(local);
 }
 
 // Connect to remote server
 //    Return connect socket file discriptor
 int SocketChannel::connect(const SocketAddress& remote) {
-    return msocket.connect(remote);
+    return mSocket.connect(remote);
 }
 
 // Accept a new socket connection
 //    Return a new SocketChannel that's accepted
 SocketChannel SocketChannel::accept() {
-    Socket accSocket = std::move(msocket.accept());
-    return std::move(SocketChannel(accSocket));
+    return std::move(SocketChannel(std::move(mSocket.accept())));
 }
 
 // Read from channel to dst
@@ -430,26 +428,26 @@ SocketChannel SocketChannel::accept() {
 //    Return 0 when there is EOF
 //    On error, return -1
 ssize_t SocketChannel::read(ByteBuffer &dst) {
-    // Refill mrbuff if it's empty
-    while(!mrbuff.has_remaining()){
-        size_t n = mrbuff.capacity();
+    // Refill mRbuff if it's empty
+    while(!mRbuff.has_remaining()){
+        size_t n = mRbuff.capacity();
         std::unique_ptr<Byte[]> tmp(new Byte[n]);
-        ssize_t nread = ::read(msocket.get_socketfd(), (void*)tmp.get(), n);
+        ssize_t nread = ::read(mSocket.get_socketfd(), (void*)tmp.get(), n);
         if(nread < 0){
             return -1;
         }else if(nread == 0){
             return 0; // EOF
         }
 
-        // Preparing for writing from mrbuff to dst
-        mrbuff.clear();
-        mrbuff.put(tmp.get(), 0, nread);
-        mrbuff.flip();
+        // Preparing for writing from mRbuff to dst
+        mRbuff.clear();
+        mRbuff.put(tmp.get(), 0, nread);
+        mRbuff.flip();
     }
 
     ssize_t count = 0;
-    while(mrbuff.has_remaining() && dst.has_remaining()){
-        dst.put(mrbuff.get());
+    while(mRbuff.has_remaining() && dst.has_remaining()){
+        dst.put(mRbuff.get());
         count++;
     }
     return count;
@@ -464,7 +462,7 @@ ssize_t SocketChannel::write(ByteBuffer &src) {
     ssize_t count = 0;
     if(src.has_remaining()){
         // Consuming src, it's not thread safe
-        ssize_t nwrite = ::write(msocket.get_socketfd(), src.array()+src.pos(), src.remaining());
+        ssize_t nwrite = ::write(mSocket.get_socketfd(), src.array() + src.pos(), src.remaining());
         if(nwrite < 0){
             return -1;
         }
@@ -475,17 +473,46 @@ ssize_t SocketChannel::write(ByteBuffer &src) {
     return count;
 }
 
-Socket SocketChannel::get_socket(){
-    return msocket;
-}
-
 void SocketChannel::close() {
-    msocket.close();
+    mSocket.close();
 }
 
 bool SocketChannel::is_open() {
-    return !msocket.isclosed();
+    return !(mSocket.get_status() == Socket::Status::PD_SOCK_CLOSED);
 }
+
+
+bool SocketChannel::is_listening() {
+    return get_status() == Socket::Status::PD_SOCK_LISTENING;
+}
+
+bool SocketChannel::is_connected() {
+    return get_status() == Socket::Status::PD_SOCK_CONNECTED;
+}
+
+bool SocketChannel::is_accepted() {
+    return get_status() == Socket::Status::PD_SOCK_ACCEPTED;
+}
+
+bool SocketChannel::is_closed() {
+    return get_status() == Socket::Status::PD_SOCK_CLOSED;
+}
+
+int SocketChannel::get_status(){
+    return mSocket.get_status();
+}
+
+SocketAddress SocketChannel::get_local_addr() {
+    return mSocket.get_local_addr();
+}
+
+SocketAddress SocketChannel::get_remote_addr() {
+    return mSocket.get_remote_addr();
+}
+
+
+
+
 
 
 
